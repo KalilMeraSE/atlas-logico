@@ -4,11 +4,18 @@
   if (!root) return;
   const X = n => 166 + (n - 1) * 19;
   const Y = { '+': 78, '−': 100, A: 150, B: 170, C: 190, D: 210, E: 230, F: 292, G: 312, H: 332, I: 352, J: 372, 'b+': 426, 'b−': 448 };
-  const state = { lesson: 'gates', selected: 'xor', switches: [1, 0, 1, 0, 1, 0, 0, 0] };
+  const state = { lesson: 'five', selected: 'xor', selectedFive: 'xor1', switches: [1, 0, 1, 0, 1, 0, 0, 0] };
   const gateData = [
     { id: 'xor', label: 'XOR', chip: '74HC86', start: 18, switches: [0, 1], color: '#eb6060', led: 54, output: 20, result: (a, b) => a ^ b, rule: 'Se enciende cuando solo uno de los dos interruptores está en ON.' },
     { id: 'and', label: 'AND', chip: '74HC08', start: 31, switches: [2, 3], color: '#56c57d', led: 58, output: 33, result: (a, b) => a & b, rule: 'Se enciende cuando los dos interruptores están en ON.' },
     { id: 'or', label: 'OR', chip: '74HC32', start: 44, switches: [4, 5], color: '#e5bb53', led: 62, output: 46, result: (a, b) => a | b, rule: 'Se enciende cuando al menos un interruptor está en ON.' }
+  ];
+  const fiveData = [
+    { id: 'xor1', label: 'XOR 1', type: 'XOR', chip: '74HC86', start: 14, switches: [0, 1], inputs: [14, 15], output: 16, pins: '1 y 2 → 3', led: 44, color: '#e85d64', result: (a, b) => a ^ b, rule: 'Se enciende cuando S1 y S2 son diferentes.' },
+    { id: 'and1', label: 'AND 1', type: 'AND', chip: '74HC08', start: 24, switches: [2, 3], inputs: [24, 25], output: 26, pins: '1 y 2 → 3', led: 48, color: '#4cbf78', result: (a, b) => a & b, rule: 'Se enciende cuando S3 y S4 están en ON.' },
+    { id: 'or1', label: 'OR 1', type: 'OR', chip: '74HC32', start: 34, switches: [4, 5], inputs: [34, 35], output: 36, pins: '1 y 2 → 3', led: 52, color: '#e1b847', result: (a, b) => a | b, rule: 'Se enciende cuando S5 o S6 está en ON.' },
+    { id: 'xor2', label: 'XOR 2', type: 'XOR', chip: '74HC86', start: 14, switches: [6, 7], inputs: [17, 18], output: 19, pins: '4 y 5 → 6', led: 56, color: '#3da9d0', result: (a, b) => a ^ b, rule: 'Compara S7 y S8: se enciende si son diferentes.' },
+    { id: 'or2', label: 'OR 2', type: 'OR', chip: '74HC32', start: 34, switches: [6, 7], inputs: [37, 38], output: 39, pins: '4 y 5 → 6', led: 60, color: '#a783d7', result: (a, b) => a | b, rule: 'Usa también S7 y S8: se enciende si alguno está en ON.' }
   ];
   const lit = gate => gate.result(state.switches[gate.switches[0]], state.switches[gate.switches[1]]);
   const hole = (x, y, cls = '') => `<circle class="lab-hole ${cls}" cx="${x}" cy="${y}" r="3.8"/><circle class="lab-hole-core" cx="${x}" cy="${y}" r="2.2"/>`;
@@ -101,10 +108,56 @@
     s += `<text x="${X(3)}" y="215" class="lab-component-label">S1–S8</text>`;
     return s;
   }
-  const svg = content => `<svg class="lab-svg" viewBox="0 0 1390 500" role="img" aria-label="Protoboard horizontal de 63 columnas, agujeros A a J y rieles de alimentación; ${state.lesson === 'gates' ? 'tres integrados, interruptor DIP y tres LED' : 'resistencia y LED'}">${content}</svg>`;
+  function fiveCircuit() {
+    let s = boardBase();
+    for (const yy of [Y['+'], Y['−'], Y['b−']]) s += path(`M${X(30)} ${yy} H${X(34)}`, yy === Y['+'] ? '#e83232' : '#333');
+    s += `<g class="lab-dip"><rect x="${X(3) - 15}" y="236" width="${X(10) - X(3) + 30}" height="52" rx="3" fill="#d72825"/><text x="${X(6.5)}" y="249" text-anchor="middle">DIP 8 · ON ↑</text>`;
+    for (let i = 0; i < 8; i++) {
+      const n = i + 3;
+      s += `<rect x="${X(n) - 6}" y="250" width="12" height="23" rx="1" fill="#a31b1b"/><rect x="${X(n) - 5}" y="${state.switches[i] ? 252 : 260}" width="10" height="10" fill="#f0eee5"/><text x="${X(n)}" y="284" text-anchor="middle">${i + 1}</text>`;
+    }
+    s += '</g>';
+    for (let i = 0; i < 8; i++) {
+      const n = i + 3;
+      s += path(`M${X(n)} ${Y['+']} V${Y.A}`, '#e83232');
+      s += resistor(X(n), Y.J + 1, Y['b−'] - 2, '10 kΩ pull-down');
+    }
+    for (const [n, name] of [[14, '74HC86'], [24, '74HC08'], [34, '74HC32']]) {
+      s += path(`M${X(n)} ${Y['+']} V${Y.A}`, '#e83232');
+      s += path(`M${X(n + 6)} ${Y.J} V${Y['b−']}`, '#333');
+      s += chip({ start: n, chip: name });
+      for (const k of [n + 1, n + 2, n + 4, n + 5]) s += path(`M${X(k)} ${Y['−']} V${Y.A}`, '#6f7780', 'lab-unused');
+      if (n === 24) for (const k of [n + 3, n + 4]) s += path(`M${X(k)} ${Y.J} V${Y['b−']}`, '#6f7780', 'lab-unused');
+    }
+    const lanes = [345, 351, 357, 363, 369, 375, 381, 387, 393, 399];
+    let wireIndex = 0;
+    for (const gate of fiveData) {
+      gate.inputs.forEach((target, j) => {
+        s += link(gate.switches[j] + 3, target, lanes[wireIndex++], gate.color, 'lab-input-wire');
+      });
+    }
+    fiveData.forEach((gate, i) => {
+      s += link(gate.output, gate.led - 2, 407 + i * 3, gate.color, 'lab-output-wire');
+      s += horizontalResistor(gate.led - 2, gate.led, '1 kΩ LED');
+      s += led(gate.led, gate.color, lit(gate), `L${i + 1}`);
+      s += path(`M${X(gate.led + 1)} ${Y.J} V${Y['b−']}`, '#333');
+    });
+    s += `<text x="${X(3)}" y="215" class="lab-component-label">S1–S8 · TODOS EN USO</text>`;
+    return s;
+  }
+  const svg = content => `<svg class="lab-svg" viewBox="0 0 1390 500" role="img" aria-label="Protoboard horizontal de 63 columnas, agujeros A a J y rieles de alimentación; ${state.lesson === 'five' ? 'DIP de ocho posiciones, tres integrados y cinco LED' : state.lesson === 'gates' ? 'tres integrados, interruptor DIP y tres LED' : 'resistencia y LED'}">${content}</svg>`;
   const truth = gate => `<table class="lab-truth"><thead><tr><th>A</th><th>B</th><th>${gate.label}</th></tr></thead><tbody>${[[0, 0], [0, 1], [1, 0], [1, 1]].map(([a, b]) => `<tr class="${state.switches[gate.switches[0]] === a && state.switches[gate.switches[1]] === b ? 'current' : ''}"><td>${a}</td><td>${b}</td><td>${gate.result(a, b)}</td></tr>`).join('')}</tbody></table>`;
+  function fiveLessonHtml() {
+    const active = fiveData.find(g => g.id === state.selectedFive);
+    return `<div class="lab-control-row"><div><strong>Prueba los ocho interruptores</strong><p>ON conecta la entrada a +5 V; OFF la deja en 0 mediante su resistencia pull-down de 10 kΩ. S7 y S8 alimentan dos compuertas distintas, por eso L4 y L5 pueden comportarse diferente.</p></div><div class="lab-switches" role="group" aria-label="DIP switch de ocho posiciones">${state.switches.map((v, i) => `<button type="button" class="lab-switch ${v ? 'on' : ''}" data-switch="${i}" aria-pressed="${!!v}" aria-label="Interruptor S${i + 1}, ${v ? 'ON' : 'OFF'}"><span>S${i + 1}</span><b>${v ? 'ON' : 'OFF'}</b></button>`).join('')}</div></div>
+      <div class="lab-five-grid" role="group" aria-label="Seleccionar uno de los cinco LED">${fiveData.map((g, i) => `<button type="button" data-five="${g.id}" class="lab-five-card ${active.id === g.id ? 'active' : ''}" aria-pressed="${active.id === g.id}"><span class="lab-five-light ${lit(g) ? 'on' : ''}" style="--gate-color:${g.color}"></span><span><strong>L${i + 1} · ${g.label}</strong><small>${g.chip} · S${g.switches[0] + 1}/S${g.switches[1] + 1}</small></span><b>${lit(g) ? 'ENCENDIDO' : 'APAGADO'}</b></button>`).join('')}</div>
+      <div class="lab-columns"><article class="lab-guide"><span class="lab-kicker">LED ${fiveData.indexOf(active) + 1} · ${active.chip}</span><h3>${active.label}: tabla y resultado</h3><p>${active.rule}</p><div class="lab-state-readout">S${active.switches[0] + 1} = ${state.switches[active.switches[0]]} · S${active.switches[1] + 1} = ${state.switches[active.switches[1]]} · salida = <strong>${lit(active)}</strong> · L${fiveData.indexOf(active) + 1} <strong>${lit(active) ? 'ENCENDIDO' : 'APAGADO'}</strong></div>${truth(active)}<p>Esta tabla pertenece solo a <strong>${active.label}</strong>. Selecciona otro LED para ver la suya.</p></article>
+      <article class="lab-guide"><span class="lab-kicker">CABLEADO DE L${fiveData.indexOf(active) + 1}</span><h3>Coordenadas exactas</h3><ol><li>En el DIP, S${active.switches[0] + 1} ocupa <strong>E${active.switches[0] + 3}/F${active.switches[0] + 3}</strong> y S${active.switches[1] + 1} ocupa <strong>E${active.switches[1] + 3}/F${active.switches[1] + 3}</strong>.</li><li>Entradas de ${active.chip}: <strong>H${active.switches[0] + 3}→H${active.inputs[0]}</strong> y <strong>H${active.switches[1] + 3}→H${active.inputs[1]}</strong> (pines ${active.pins}).</li><li>Salida: <strong>H${active.output}→H${active.led - 2}</strong>. Resistencia de <strong>1 kΩ</strong> entre <strong>J${active.led - 2} y J${active.led}</strong>.</li><li>Ánodo del LED en <strong>F${active.led}</strong>, cátodo en <strong>F${active.led + 1}</strong>; une <strong>J${active.led + 1}→−${active.led + 1}</strong> del riel inferior.</li></ol><p>S7 y S8 se ramifican hacia L4 y L5. Cada LED conserva su propia salida y su propia resistencia; <strong>no unas las salidas</strong> de las compuertas.</p></article></div>
+      <details class="lab-extra" open><summary>Montaje completo de los cinco LED</summary><p><strong>Materiales:</strong> fuente de 5 V regulada, DIP de 8 posiciones, 74HC86, 74HC08 y 74HC32 en encapsulado DIP-14, 5 LED, 5 resistencias de 1 kΩ, 8 resistencias de 10 kΩ, 3 condensadores cerámicos de 100 nF y cables.</p><p><strong>Alimentación:</strong> con la fuente apagada, rojo a +1 del riel superior y negro a −1 del riel inferior; une −1 superior con −1 inferior. Si los rieles están partidos, puentea +30→+34 superior, −30→−34 superior y −30→−34 inferior. Comprueba continuidad y tensión con el multímetro.</p><div class="lab-table-scroll"><table class="lab-wiring-table"><caption>DIP de 8 posiciones y resistencias pull-down</caption><thead><tr><th>Interruptor</th><th>Contactos DIP</th><th>+5 V al contacto superior</th><th>10 kΩ del contacto inferior a GND</th></tr></thead><tbody>${state.switches.map((_, i) => { const n = i + 3; return `<tr><th>S${i + 1}</th><td>E${n} / F${n}</td><td>+${n}→A${n}</td><td>J${n}→−${n} inferior</td></tr>`; }).join('')}</tbody></table></div><p><strong>Integrados:</strong> coloca cada uno cruzando la ranura central, con la muesca hacia la izquierda. 74HC86 en columnas 14–20: pin 14 en E14 mediante +14→A14; pin 7 en F20 mediante J20→−20 inferior. 74HC08 en 24–30: pin 14 en E24 mediante +24→A24; pin 7 en F30 mediante J30→−30 inferior. 74HC32 en 34–40: pin 14 en E34 mediante +34→A34; pin 7 en F40 mediante J40→−40 inferior.</p><div class="lab-table-scroll"><table class="lab-wiring-table"><caption>Cinco salidas independientes</caption><thead><tr><th>LED</th><th>Compuerta</th><th>Entradas desde el DIP</th><th>Salida</th><th>Resistencia 1 kΩ</th><th>LED y GND</th></tr></thead><tbody>${fiveData.map((g, i) => `<tr><th>L${i + 1}</th><td>${g.label} · ${g.chip}<br>pines ${g.pins}</td><td>H${g.switches[0] + 3}→H${g.inputs[0]}<br>H${g.switches[1] + 3}→H${g.inputs[1]}</td><td>H${g.output}→H${g.led - 2}</td><td>J${g.led - 2}→J${g.led}</td><td>F${g.led} ánodo, F${g.led + 1} cátodo<br>J${g.led + 1}→−${g.led + 1} inferior</td></tr>`).join('')}</tbody></table></div><p><strong>Entradas CMOS no usadas:</strong> en 74HC86 conecta A15, A16, A18 y A19 al riel − superior de su columna. En 74HC08 conecta A25, A26, A28 y A29 al riel − superior, y J27 y J28 al riel − inferior. En 74HC32 conecta A35, A36, A38 y A39 al riel − superior. Deja sin conectar las salidas de las compuertas que no usas.</p><p><strong>Desacoplo:</strong> coloca 100 nF entre B14 y −14 superior, B24 y −24 superior, B34 y −34 superior. Conecta la fuente solo después de revisar orientación, resistencia en serie y ausencia de cortocircuitos.</p><p>Consulta el pinaje de <a href="https://www.ti.com/lit/ds/symlink/sn74hc86.pdf" target="_blank" rel="noopener noreferrer">74HC86</a>, <a href="https://www.ti.com/lit/ds/symlink/sn74hc08.pdf" target="_blank" rel="noopener noreferrer">74HC08</a> y <a href="https://www.ti.com/lit/ds/symlink/sn74hc32.pdf" target="_blank" rel="noopener noreferrer">74HC32</a>.</p></details>`;
+  }
   function lessonHtml() {
     if (state.lesson === 'basic') return `<div class="lab-columns"><div class="lab-guide"><h3>Práctica 01 · Un LED</h3><ol><li>Fuente regulada apagada: rojo a <strong>+14</strong>, negro a <strong>−16</strong>.</li><li>Resistencia de <strong>330 Ω</strong> entre <strong>+14 y A14</strong>.</li><li>Ánodo del LED en <strong>B14</strong>; cátodo en <strong>B16</strong>.</li><li>Cable de <strong>E16 a −16</strong>. Revisa y enciende la fuente a 5 V.</li></ol><p>A–E de la misma columna se conectan entre sí. F–J forman otro grupo, separado por la ranura central.</p></div><div class="lab-guide lab-callout"><h3>Antes de conectar</h3><p>La pata larga suele ser el ánodo. El lado plano y la pata corta suelen señalar el cátodo. La resistencia puede ir antes o después del LED, siempre en serie.</p><p>Si la placa tiene rieles partidos, une sus tramos cuando el circuito los use. Compruébalo con un multímetro.</p></div></div>`;
+    if (state.lesson === 'five') return fiveLessonHtml();
     const active = gateData.find(g => g.id === state.selected);
     return `<div class="lab-control-row"><div><strong>DIP switch de 8 posiciones</strong><p>ON = 1 (+5 V). OFF = 0 por la resistencia pull-down de 10 kΩ. Cambia los interruptores para probar el circuito.</p></div><div class="lab-switches" role="group" aria-label="Simulador del DIP switch">${state.switches.map((v, i) => `<button type="button" class="lab-switch ${v ? 'on' : ''} ${i > 5 ? 'spare' : ''}" data-switch="${i}" aria-pressed="${!!v}" aria-label="Interruptor S${i + 1}, ${v ? 'ON' : 'OFF'}${i > 5 ? ', libre' : ''}"><span>S${i + 1}</span><b>${v ? 'ON' : 'OFF'}</b></button>`).join('')}</div></div>
     <div class="lab-gate-tabs" role="group" aria-label="Seleccionar montaje">${gateData.map(g => `<button type="button" data-gate="${g.id}" class="${active.id === g.id ? 'active' : ''}" aria-pressed="${active.id === g.id}"><span class="lab-status" style="--gate-color:${g.color};opacity:${lit(g) ? 1 : .4}"></span>${g.label} <small>${g.chip}</small></button>`).join('')}</div>
@@ -117,13 +170,14 @@
     return `<ol><li>Con fuente apagada: +5 V al <strong>riel + superior, columna 1</strong>; GND al <strong>riel − inferior, columna 1</strong>. Une − superior con − inferior. Puentea cada riel partido que uses, de la columna 30 a la 34.</li><li>Coloca el DIP cruzando la ranura central: S${g.switches[0] + 1} en <strong>E${a}/F${a}</strong>, S${g.switches[1] + 1} en <strong>E${b}/F${b}</strong>. Del riel +${a} a A${a} y +${b} a A${b}. Resistencias de 10 kΩ de J${a} a −${a} inferior y J${b} a −${b} inferior.</li><li>${g.chip} cruza la ranura desde la columna <strong>${n} hasta ${n + 6}</strong>, con la muesca a la izquierda: pin 14 en <strong>E${n}</strong>, pin 7 en <strong>F${n + 6}</strong>. Conecta +${n}→A${n} y J${n + 6}→−${n + 6} inferior.</li><li>Entradas: <strong>H${a}→H${n}</strong> (pin 1) y <strong>H${b}→H${n + 1}</strong> (pin 2). Salida pin 3: <strong>H${n + 2}→H${d - 2}</strong>.</li><li>Resistencia de 1 kΩ entre <strong>J${d - 2} y J${d}</strong>. LED: ánodo en <strong>F${d}</strong>, cátodo en <strong>F${d + 1}</strong>. Une <strong>J${d + 1}→−${d + 1}</strong> inferior.</li></ol>`;
   }
   function render() {
-    root.innerHTML = `<div class="section-heading"><div><div class="kicker">02 / LABORATORIO</div><h2>Del agujero al <em>resultado.</em></h2><p>Una protoboard horizontal de 63 columnas, con orificios, rieles y coordenadas A–J. Cada compuerta se prueba por separado.</p></div><span class="section-index">PRÁCTICAS 01–02<br>5 V · SERIE 74HC</span></div>
-      <div class="lab-lesson-tabs" role="group" aria-label="Elegir práctica"><button type="button" data-lesson="basic" class="${state.lesson === 'basic' ? 'active' : ''}" aria-pressed="${state.lesson === 'basic'}">01 · Encender un LED</button><button type="button" data-lesson="gates" class="${state.lesson === 'gates' ? 'active' : ''}" aria-pressed="${state.lesson === 'gates'}">02 · LED con XOR, AND y OR</button></div>
-      <div class="lab-panel"><div class="lab-panel-top"><span><i></i> VISTA SUPERIOR · 63 COLUMNAS</span><span>Desliza horizontalmente si usas móvil</span></div><div class="lab-board-scroll">${svg(state.lesson === 'basic' ? basicCircuit() : gatesCircuit())}</div><div class="lab-legend"><span><i class="red"></i> +5 V</span><span><i class="dark"></i> GND</span><span><i class="blue"></i> Entradas</span><span><i class="gold"></i> Resistencias y LED</span></div></div>
+    root.innerHTML = `<div class="section-heading"><div><div class="kicker">02 / LABORATORIO</div><h2>Del agujero al <em>resultado.</em></h2><p>Una protoboard horizontal de 63 columnas, con orificios, rieles y coordenadas A–J. Pasa de un LED a tres y luego a cinco.</p></div><span class="section-index">PRÁCTICAS 01–03<br>5 V · SERIE 74HC</span></div>
+      <div class="lab-lesson-tabs" role="group" aria-label="Elegir práctica"><button type="button" data-lesson="basic" class="${state.lesson === 'basic' ? 'active' : ''}" aria-pressed="${state.lesson === 'basic'}">01 · Encender un LED</button><button type="button" data-lesson="gates" class="${state.lesson === 'gates' ? 'active' : ''}" aria-pressed="${state.lesson === 'gates'}">02 · Tres LED con compuertas</button><button type="button" data-lesson="five" class="${state.lesson === 'five' ? 'active' : ''}" aria-pressed="${state.lesson === 'five'}">03 · Cinco LED con DIP de 8</button></div>
+      <div class="lab-panel"><div class="lab-panel-top"><span><i></i> VISTA SUPERIOR · 63 COLUMNAS</span><span>Desliza horizontalmente si usas móvil</span></div><div class="lab-board-scroll">${svg(state.lesson === 'basic' ? basicCircuit() : state.lesson === 'gates' ? gatesCircuit() : fiveCircuit())}</div><div class="lab-legend"><span><i class="red"></i> +5 V</span><span><i class="dark"></i> GND</span><span><i class="blue"></i> Entradas</span><span><i class="gold"></i> Resistencias y LED</span></div></div>
       <div class="lab-safety"><strong>Antes de encender:</strong> fuente de 5 V de corriente continua regulada, polaridad verificada y alimentación desconectada mientras cableas. El dibujo muestra la familia <strong>74HC</strong>; si tu integrado es 74LS, consulta su hoja de datos.</div>${lessonHtml()}`;
     root.querySelectorAll('[data-lesson]').forEach(b => b.addEventListener('click', () => { state.lesson = b.dataset.lesson; render(); }));
     root.querySelectorAll('[data-switch]').forEach(b => b.addEventListener('click', () => { const i = Number(b.dataset.switch); state.switches[i] ^= 1; render(); }));
     root.querySelectorAll('[data-gate]').forEach(b => b.addEventListener('click', () => { state.selected = b.dataset.gate; render(); }));
+    root.querySelectorAll('[data-five]').forEach(b => b.addEventListener('click', () => { state.selectedFive = b.dataset.five; render(); }));
   }
   render();
 })();
